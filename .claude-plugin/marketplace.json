@@ -1,0 +1,29 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "euricom-plugins-official",
+  "description": "Directory of popular Claude Code extensions including development tools, productivity plugins, and MCP integrations",
+  "owner": {
+    "name": "Euricom",
+    "email": "support@euri.com"
+  },
+  "plugins": [
+    {
+      "name": "example-plugin",
+      "description": "A comprehensive example plugin demonstrating all Claude Code extension options including commands, agents, skills, hooks, and MCP servers",
+      "author": {
+        "name": "Euricom",
+        "email": "support@euri.com"
+      },
+      "source": "./plugins/example-plugin",
+      "category": "productivity",
+      "homepage": "https://github.com/euricom-io/euri-ai-marketplace/tree/main/plugins/example-plugin"
+    },
+    {
+      "name": "playwright",
+      "description": "Browser automation and end-to-end testing MCP server by Microsoft. Enables Claude to interact with web pages, take screenshots, fill forms, click elements, and perform automated browser testing workflows.",
+      "category": "testing",
+      "source": "./external_plugins/playwright",
+      "homepage": "https://github.com/euricom-io/euri-ai-marketplace/tree/main/plugins/playwright"
+    }
+  ]
+}
