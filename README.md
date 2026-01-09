@@ -13,7 +13,12 @@ A curated directory of high-quality plugins for Claude Code.
 
 Plugins can be installed directly from this marketplace via Claude Code's plugin system.
 
-To install, run `/plugin install {plugin-name}@euricom-plugin-directory`
+To install, run 
+
+```
+/plugin marketplace add git@github.com:euricom-io/euri-ai-marketplace.git
+/plugin install {plugin-name}@euricom-plugin-directory
+```
 
 or browse for the plugin in `/plugin > Discover`
 
@@ -25,7 +30,7 @@ Plugins are developed by Euricom team members. See `/plugins/example-plugin` for
 
 ### External Plugins
 
-Third-party partners can submit plugins for inclusion in the marketplace. External plugins must meet quality and security standards for approval.
+Third-party partners are hand picked for inclusion in the marketplace. External plugins must meet quality and security standards for approval.
 
 ## Plugin Structure
 
