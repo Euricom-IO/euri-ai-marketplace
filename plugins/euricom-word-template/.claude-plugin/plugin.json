@@ -1,0 +1,6 @@
+{
+  "name": "euricom-word-template",
+  "description": "Produce professional .docx documents in the Euricom brand template.",
+  "author": { "name": "Euricom" },
+  "license": "Proprietary"
+}
