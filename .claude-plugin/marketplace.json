@@ -24,6 +24,30 @@
       "category": "testing",
       "source": "./external_plugins/playwright",
       "homepage": "https://github.com/euricom-io/euri-ai-marketplace/tree/main/plugins/playwright"
+    },
+    {
+      "name": "euricom-word-template",
+      "description": "Produce professional .docx documents in the Euricom brand template (Aptos fonts, brand colours, logo, cover, TOC, branded notes/quotes/tables).",
+      "author": {
+        "name": "Euricom",
+        "email": "support@euri.com"
+      },
+      "source": "./plugins/euricom-word-template",
+      "category": "productivity",
+      "homepage": "https://github.com/euricom-io/euri-ai-marketplace/tree/main/plugins/euricom-word-template",
+      "keywords": ["euricom", "word", "docx", "template", "branding", "huisstijl"]
+    },
+    {
+      "name": "claude-marketplace-builder",
+      "description": "Scaffold a new Claude Code plugin marketplace or extend an existing one — generates marketplace.json, plugin.json, and the directory layout the platform expects.",
+      "author": {
+        "name": "Euricom",
+        "email": "support@euri.com"
+      },
+      "source": "./plugins/claude-marketplace-builder",
+      "category": "developer-tools",
+      "homepage": "https://github.com/euricom-io/euri-ai-marketplace/tree/main/plugins/claude-marketplace-builder",
+      "keywords": ["claude-code", "marketplace", "plugin", "scaffolding", "meta"]
     }
   ]
 }

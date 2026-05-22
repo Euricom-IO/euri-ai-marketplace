@@ -1,0 +1,6 @@
+{
+  "name": "claude-marketplace-builder",
+  "description": "Scaffold and maintain Claude Code plugin marketplaces.",
+  "author": { "name": "Euricom" },
+  "license": "MIT"
+}
