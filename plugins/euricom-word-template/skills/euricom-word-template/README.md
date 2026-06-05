@@ -18,13 +18,13 @@ and every custom paragraph style.
 
 ## How to use it
 
-Claude Code auto-triggers this skill from its description — there's
-no slash command to invoke it. Two ways to use it:
+There's no slash-command or `/help` in claude.ai for custom skills.
+Two ways to use this one:
 
 **1. Just ask naturally.** With the skill enabled, prompts like the
 following automatically trigger it:
 
-- *"Zet dit document om naar de Euricom template"* (+ a source file path)
+- *"Zet dit document om naar de Euricom template"* (+ upload a file)
 - *"Maak een korte memo over X volgens onze huisstijl"*
 - *"Schrijf een whitepaper over Y in de Euricom-template"*
 - *"Apply our brand template to this PDF"*
@@ -52,8 +52,9 @@ helper functions that emit the exact XML each component expects.
 ```
 euricom-word-template/
 ├── SKILL.md                                  Main entry point + workflow
+├── CHANGELOG.md                              Version history of the skill
 ├── assets/
-│   └── Euricom_Generic_Template_v1_0.dotx    Embedded default template
+│   └── Euricom_Generic_Template.dotx          Embedded default template
 ├── references/
 │   ├── styles-reference.md                   All style IDs + when to use
 │   ├── components-reference.md               Component API + examples
@@ -68,7 +69,7 @@ euricom-word-template/
 ## Updating the embedded template
 
 When a new version of the Euricom template is released, replace the
-file at `assets/Euricom_Generic_Template_v1_0.dotx`. If the new version
+file at `assets/Euricom_Generic_Template.dotx`. If the new version
 adds, renames, or removes styles, also update:
 
 - `references/styles-reference.md` (style catalogue)
@@ -76,9 +77,9 @@ adds, renames, or removes styles, also update:
 - `scripts/render_components.py` (if note colours, quote borders, or
   cell widths change — re-extract from the template's XML)
 
-Users can also override the embedded template per-session by pointing
-the skill at their own `.dotx` file path — the skill prefers an
-explicitly-supplied path over the bundled default.
+Users can also override the embedded template per-session by uploading
+their own `.dotx` file — the skill prefers user uploads over the
+embedded default.
 
 ## License
 

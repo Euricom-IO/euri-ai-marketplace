@@ -6,6 +6,25 @@ closely. When the source is another language (English, French),
 mirror these principles in that language — clarity, restraint, and
 respect for the reader translate.
 
+## When these rules apply (and when they don't)
+
+This guide is for **new content authored by the skill** (Scenario 2 in
+`SKILL.md` — generating a document from a prompt). There Claude is the
+author and the full guide applies: sentence length, active voice,
+words to avoid, the lot.
+
+For **conversions of existing content** (Scenario 1) the rules are
+much narrower. The author's voice is the ground truth; the skill's job
+is to apply Euricom's *visual* identity, not to rewrite their prose.
+On a conversion, apply only the surface-level items: smart quotes,
+sentence-case headings, non-breaking spaces, fixing obvious typos and
+inconsistent terminology. Leave sentence length, voice, word choice,
+and paragraph structure as the author wrote them — even if some
+phrasing isn't what this guide would recommend for new content.
+
+If a user explicitly asks "rewrite this in our tone of voice", treat
+that as Scenario 2 on existing material: the full guide applies.
+
 ## Core principles
 
 The template's own description of itself is the best summary:

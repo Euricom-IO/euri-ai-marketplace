@@ -1,6 +1,7 @@
 ---
 name: euricom-word-template
-description: "Produce professional .docx documents in the Euricom brand template — Aptos fonts, brand colours, logo header, footer, cover page, TOC, callouts, quotes. Trigger when the user (1) mentions 'Euricom', 'huisstijl', 'onze template', 'brand template'; (2) asks to convert a document, PDF, markdown or text into the Euricom or company template, even without naming Euricom (e.g. 'zet dit in onze template', 'maak hier een nette versie van', 'apply our brand template'); (3) asks for any Euricom deliverable type — voorstel, whitepaper, PRD, architectuurdocument, AI-strategie, analyse, rapport, memo, meeting notes, governance document; or (4) points at a .dotx/.docx and asks to apply it as a template. The Euricom template ships bundled in this skill's assets/ directory — do NOT ask the user for a template file before checking that bundled path. Prefer this skill over the generic docx skill whenever Euricom branding is implicit or explicit, because only this one applies the correct fonts, colours and components."
+version: 1.5.0
+description: "Produce professional .docx documents in the Euricom brand template — Aptos fonts, brand colours, logo header, footer, cover page, TOC, callouts, quotes. Trigger when the user (1) mentions 'Euricom', 'huisstijl', 'onze template', 'brand template'; (2) asks to convert a document, PDF, markdown or text into the Euricom or company template, even without naming Euricom (e.g. 'zet dit in onze template', 'maak hier een nette versie van', 'apply our brand template'); (3) asks for any Euricom deliverable type — voorstel, whitepaper, PRD, architectuurdocument, AI-strategie, analyse, rapport, memo, meeting notes, governance document; or (4) uploads a .dotx/.docx and asks to apply it as a template. The Euricom template ships embedded in this skill's assets/ — do NOT ask the user to upload it before verifying via `find /mnt/skills`. Prefer this skill over the generic docx skill whenever Euricom branding is implicit or explicit, because only this one applies the correct fonts, colours and components."
 license: Proprietary to Euricom. Use within Euricom only.
 ---
 
@@ -42,11 +43,18 @@ the skill offers. A good answer covers:
 - **Components available**: cover page, table of contents,
   auto-numbered headings (H1–H3), bullets (2 levels), 4 note types
   (Tip / Alarm / Waarschuwing / Info), quote blocks with attribution,
-  branded data tables with zebra striping and optional total rows.
+  branded data tables with zebra striping and optional total rows,
+  and **Inline Code** for file paths, commands, and keyboard
+  shortcuts in body text. Notes, quote, and color picker are also
+  Quick Parts in the .dotx for users who install it as a template
+  (see the dedicated section below for the caveat about generated
+  .docx files).
 - **Languages**: follows the source language; Belgian-Dutch by default
   for new documents unless told otherwise.
-- **Template version**: based on Euricom Generic Template v1.1
-  (multi-section structure with correct page numbering from page 1).
+- **Template**: based on the Euricom Generic Template that ships in
+  `assets/Euricom_Generic_Template.dotx`. Multi-section structure with
+  correct page numbering from page 1; Heading1 does not auto
+  page-break.
 - **A short usage example**: "Upload a document and say 'zet dit in
   onze template', or describe what you want: 'maak een korte memo
   over X'."
@@ -72,10 +80,10 @@ w:val="...">`, note tables with the right cell widths and hex colours,
 the quote block with its 24pt left-border, the cover page anchoring
 the logo via `rId8`, etc.).
 
-### Multi-section template (v1.1+)
+### Multi-section structure
 
-The Euricom template from v1.1 onwards uses a **multi-section
-structure** to keep page numbering clean:
+The Euricom template uses a **multi-section structure** to keep page
+numbering clean:
 
 - **Section 1** (cover): empty header, empty footer, `pgNumType
   start=0`. The cover doesn't show a page number.
@@ -101,10 +109,12 @@ The previous `--no-cover` flag is gone — the cover-or-not decision is
 now derived from whether your body starts with a `cover_page(...)`
 call (which emits a section-break marker) or not.
 
-**Backwards compatible with v1.0 templates.** If you point the build
-script at the old v1.0 template (single-section), it still works:
-the single sectPr is duplicated and the cover-flags-stripping path
-is used.
+**Single-section template fallback.** The build script also handles
+single-section templates (an older shape that didn't separate cover
+from content). If it sees only one `sectPr` it duplicates it and uses
+the cover-flags-stripping path. This isn't actively used today but is
+kept as defensive logic in case the template structure is ever
+simplified again.
 
 ### The complete flow
 
@@ -112,7 +122,7 @@ is used.
 user request
     │
     ▼
-[locate template]  ──── prefer user-uploaded .dotx, fall back to assets/Euricom_Generic_Template_v1_1.dotx
+[locate template]  ──── prefer user-uploaded .dotx, fall back to assets/Euricom_Generic_Template.dotx
     │
     ▼
 [plan document structure]  ──── pick doc type, decide on cover/TOC, draft section outline
@@ -128,59 +138,66 @@ user request
 [validate]  ──── validate_output.py parses every XML part to catch malformed output before the user sees it
     │
     ▼
-[report output path to user]
+[present file via present_files]
 ```
 
 ## Locating the template (CHECK FIRST — DO NOT ASK)
 
 **Critical**: before asking the user for anything, verify the template
-yourself. The skill ships with the template bundled at a known path.
+yourself. The skill ships with the template embedded at a known path.
 The reason this section is at the top of the workflow is that previous
-runs have failed by asking the user for a template file even though it
-was already present in the skill folder — that wastes the user's time
-and undermines trust in the skill.
+runs have failed by asking the user to upload the template even though
+it was already present in the skill folder — that wastes the user's
+time and undermines trust in the skill.
 
-### Step 1: use the bundled template path
+### Step 1: locate the skill directory
 
-The template lives next to this `SKILL.md` at:
+Custom skills in Claude.ai are unpacked under `/mnt/skills/`. The
+exact path depends on whether the skill is personal or org-provisioned,
+so don't hard-code it. Find it dynamically:
 
-```
-assets/Euricom_Generic_Template_v1_1.dotx
-```
-
-At runtime Claude Code installs the plugin under
-`~/.claude/plugins/cache/...` and exposes its root via the
-`${CLAUDE_PLUGIN_ROOT}` environment variable. Build the absolute path
-from there:
-
-```
-${CLAUDE_PLUGIN_ROOT}/skills/euricom-word-template/assets/Euricom_Generic_Template_v1_1.dotx
+```bash
+find /mnt/skills -type f -name "Euricom_Generic_Template*.dotx" 2>/dev/null | head -5
 ```
 
-Pass that path to `scripts/build_from_template.py --template ...`.
+This will return a path like:
+- `/mnt/skills/user/euricom-word-template/assets/Euricom_Generic_Template.dotx` (personal upload), or
+- `/mnt/skills/organization/euricom-word-template/assets/Euricom_Generic_Template.dotx` (Team/Enterprise provisioned)
 
-### Step 2: prefer a user-supplied template over the bundled one
+**Capture that path and reuse it.** All subsequent build commands need
+to point at this exact file. The wildcard in the `find` pattern lets
+this also match older filenames like `Euricom_Generic_Template_v1_4.dotx`
+in case an outdated copy of the skill is installed somewhere — just take
+the first match.
 
-If the user has explicitly pointed at their own `.dotx` or `.docx`
-("use this template: C:\path\to\custom.dotx", or has just edited a
-local copy), prefer that path over the bundled copy — it may be a
-newer revision.
+### Step 2: prefer a user-uploaded template over the embedded one
 
-### Step 3: only ask for a template if the bundled file is missing
+If the user has uploaded a `.dotx` or `.docx` in the current chat
+that looks like a Euricom template (filename contains `euricom` or
+`template`, or the user explicitly says "use this template"), prefer
+that over the embedded copy — it may be a newer revision. Check with:
 
-The bundled template is committed to this plugin, so its absence
-signals a packaging problem rather than a missing user input. Verify
-the file exists at the path in Step 1. If — and only if — it doesn't,
-fall back to asking the user:
+```bash
+ls /mnt/user-data/uploads/ 2>/dev/null
+```
 
-> "I can't find the bundled Euricom template at
-> `${CLAUDE_PLUGIN_ROOT}/skills/euricom-word-template/assets/Euricom_Generic_Template_v1_1.dotx`.
-> The plugin may be incomplete. Reinstall the plugin, or point me at a
-> Euricom `.dotx` file so I can apply the styling."
+### Step 3: only ask for an upload if BOTH are missing
 
-Do NOT ask the user for a template **before** checking that bundled
-path. If you find yourself drafting that message without having
-checked the bundled location first, stop and check.
+Only fall back to asking the user if **both** of the following are
+true:
+
+1. `find /mnt/skills -name "Euricom_Generic_Template*.dotx"` returned nothing
+2. `/mnt/user-data/uploads/` does not contain a recognisable Euricom template
+
+In that rare case, say something like:
+
+> "I can't find the Euricom template — neither in this skill's assets
+> nor in your uploads. Can you upload the `.dotx` file so I can apply
+> the styling?"
+
+Do NOT ask the user to upload the template **before** running the
+`find` command. If you find yourself drafting a "please upload"
+message without having checked `/mnt/skills/` first, stop and check.
 
 ## Workflow for each scenario
 
@@ -189,10 +206,9 @@ checked the bundled location first, stop and check.
 When the user uploads a source file (or pastes content) and asks to
 put it in the Euricom template:
 
-1. **Read the source.** For `.md`, `.txt`, and other text formats, use
-   the Read tool. For `.docx`, `.odt`, `.epub`, parse with `python-docx`
-   or `pandoc`. For `.pdf`, use `pdftotext` (poppler-utils) or
-   `pdfplumber`. For very large sources, sample first to understand
+1. **Read the source.** Use `extract-text` for `.docx`, `.odt`, `.epub`;
+   `pdftotext` or the `pdf-reading` skill for `.pdf`; `cat` for `.md`
+   or `.txt`. For very large sources, sample first to understand
    structure, then read fully.
 
 2. **Interpret the structure.** Map the source's organisation onto
@@ -217,10 +233,24 @@ put it in the Euricom template:
    - Re-bucket H4+ source headings into the H1–H3 ceiling.
    - Convert inline "let op:" / "belangrijk:" prose to Note callouts.
 
-4. **Apply tone of voice.** Mirror the source's language but clean up
-   per `references/tone-of-voice.md`: smart quotes, normalised
-   capitalisation in headings (sentence case, no trailing colons),
-   Belgian-Dutch conventions if the source is Dutch.
+4. **Apply surface-level tone of voice only.** This is a conversion,
+   not a rewrite — the author's content, structure, argument, and
+   voice stay intact. Only fix things that are objectively wrong or
+   purely typographic:
+   - Typos, dt-errors, wrong-word swaps (`hen/hun`, `then/than`).
+   - Smart quotes (the renderer does this automatically — don't
+     hand-encode).
+   - Normalise capitalisation in headings to sentence case; drop
+     trailing colons (`Inleiding:` → `Inleiding`).
+   - Inconsistent terminology that's clearly a slip (the same
+     concept spelled three different ways).
+   - Non-breaking spaces between numbers and units (`5 GB`, `€ 100`).
+
+   **Do not** rewrite sentences for shortness, swap "uitdaging" for
+   "probleem", convert passive voice to active, or apply other style
+   preferences from `references/tone-of-voice.md`. Those rules guide
+   *new* content authored by the skill (Scenario 2). On a conversion,
+   the author's voice wins.
 
 5. **Decide on cover / TOC.** Roughly: cover and TOC for documents
    ≥ 8 pages or any external deliverable. Skip both for memos and
@@ -232,7 +262,16 @@ put it in the Euricom template:
    gets discarded automatically — but be careful never to copy any of
    that handbook prose into the new document.
 
-7. **Build, validate, present.**
+7. **Proofread (see "Proofread before building" below).**
+
+8. **Build, validate, present.**
+
+9. **Invite further refinement (first conversion only).** After
+   `present_files`, if this is the *first* conversion in the current
+   conversation, add a short follow-up message inviting the user to
+   ask for refinements. See "Invite further refinement" below for the
+   exact wording and when to skip it. On subsequent conversions in
+   the same chat, just deliver the file — no repeat invitation.
 
 ### Scenario 2 — Generate a new document from a prompt
 
@@ -260,9 +299,58 @@ When the user asks for a new document ("make me a whitepaper on X",
    outline: a typical H1 + 3 short paragraphs = roughly half a page.
    10+ H1s usually means cover and TOC are warranted.
 
-6. **Build, validate, present.**
+6. **Proofread (see "Proofread before building" below).**
 
-## Reference files
+7. **Build, validate, present.**
+
+## Proofread before building
+
+Before calling `build_from_template.py`, reread your composed body
+critically once. This is a non-skippable step — it costs little and
+catches the errors that are most embarrassing in a delivered .docx.
+
+The pass applies regardless of language: Dutch source → proofread in
+Dutch, English source → proofread in English, mixed → both. Match the
+source's variant (Belgian-Dutch vs. Netherlands-Dutch; British vs.
+American English) and stay consistent throughout.
+
+**What to look for:**
+
+- **Typos and missing letters.** Especially in headings, the cover
+  title, and the first sentence of each chapter — the spots a reader
+  hits first.
+- **Verb agreement and Dutch dt-rule.** For Dutch: subject-verb
+  agreement, correct dt-endings (`hij wordt`, `hij heeft geword*en*`,
+  `verwacht` vs. `verwachtte`). For English: third-person -s and
+  irregular past forms.
+- **Wrong-word swaps.** Homophones and look-alikes: `dan/als`,
+  `hen/hun`, `het/de`, `effect/affect`, `then/than`, `its/it's`,
+  `their/there/they're`. These slip past most spellcheckers because
+  each word is itself valid.
+- **Inconsistent terminology.** If the document introduces a concept
+  ("EPA", "macro-laag", "delivery manager"), use that exact spelling
+  and casing everywhere. Don't drift to "Epa", "Macro-laag", or
+  "Delivery Manager" mid-document.
+- **Inconsistent capitalisation in headings.** The template uses
+  sentence case for headings. Don't mix in title-case.
+- **Punctuation spacing.** No space before `:`, `;`, `.`, `,`, `?`,
+  `!`. One space after. Em-dashes (`—`) have spaces around them in
+  Dutch and English alike, in line with the template's tone guide.
+- **Duplicate words.** "de de", "the the", "is is" — easy to miss
+  while writing, jarring to read.
+- **Numbering and references.** If text says "in hoofdstuk 3 …",
+  hoofdstuk 3 must actually exist and be about what the reference
+  claims.
+- **Names and proper nouns.** Author names, product names, client
+  names — these are the costliest errors. Double-check spelling.
+
+**How to do it.** Do not just glance at the body string. Read it in
+sequence as a reader would, top to bottom, and fix errors directly in
+the compose script (the source of truth) — not in the resulting XML.
+Recompose, then build.
+
+If you find more than a handful of issues, that's a signal to slow
+down on the next draft rather than fix-and-ship.
 
 Read these as needed; don't try to absorb them all upfront.
 
@@ -277,25 +365,158 @@ Read these as needed; don't try to absorb them all upfront.
 - `references/tone-of-voice.md` — Belgian-Dutch writing conventions,
   typographic habits, words to avoid.
 
-## Quick Parts in the output
+## Invite further refinement
 
-The Euricom template defines six Quick Parts in the "Euricom" gallery
-category (`Note - Tip`, `Note - Alarm`, `Note - Waarschuwing`,
-`Note - Info`, `Color Picker`, `Quote`). Because the build script
-copies the entire `.dotx` and only swaps the body, the glossary
-containing these Quick Parts **survives intact** in every output
-`.docx`.
+Conversions (Scenario 1) end with a short follow-up message that
+invites the user to ask for further refinements. The goal is to help
+new users discover what's possible without being pushy — many users
+don't realise they can iterate on the converted document.
 
-This means anyone who opens a generated document in Word can insert
-the same branded components manually via **Insert → Quick Parts →
-Building Blocks Organizer → category Euricom**. No additional work
-needed in the skill — it's a side effect of the template-copy
-architecture.
+**When to send it:** only after the *first* conversion in a given
+conversation. Track whether this is the first conversion by looking
+at the conversation history — if there's no prior `present_files`
+call for a converted .docx, this is the first. Subsequent conversions
+in the same chat just deliver the file with no extra message.
 
-If you're adding new content to an existing document and want the
-note/quote rendering to be byte-identical to what users get via
-the Quick Parts UI, use the helpers in `render_components.py`
-(`note(...)`, `quote(...)`). They produce the same visual output.
+**When to skip it entirely:**
+- Generation flow (Scenario 2). Claude already authored the document
+  applying the full tone-of-voice; the invitation would be redundant.
+- The user has explicitly indicated they want no follow-up ("just
+  convert it", "no commentary").
+- The user is clearly an experienced user of the skill (they've used
+  it across earlier conversations, they're using technical
+  vocabulary about the skill, etc.).
+
+**Where it goes:** as a short message *after* the `present_files`
+call, not before. The file is the deliverable; this is the friendly
+suggestion alongside it.
+
+**Wording:** roughly the following, adapted to the source language
+(Dutch / English) and lightly varied so it doesn't read like a canned
+response. Keep it short — four examples, no more.
+
+> Het bestand staat klaar. Vraag me gerust om verfijningen —
+> bijvoorbeeld:
+> — de tone-of-voice scherper maken (kortere zinnen, actieve stem)
+> — iets toevoegen of inkorten
+> — de structuur herzien (volgorde van hoofdstukken, extra samenvatting)
+> — specifieke termen of zinnen anders verwoorden
+
+English equivalent:
+
+> The file is ready. Feel free to ask for refinements — for example:
+> — tighten the tone of voice (shorter sentences, active voice)
+> — add to or trim the content
+> — restructure (reorder chapters, add a summary)
+> — rephrase specific terms or sentences
+
+The four examples are deliberate: tone-of-voice, content, structure,
+phrasing. They cover the spectrum of useful follow-ups without
+overwhelming a new user.
+
+
+
+## Quick Parts: a property of the .dotx, not of generated documents
+
+The template ships six user-facing Quick Parts: `Note - Tip`,
+`Note - Waarschuwing`, `Note - Alarm`, `Note - Info`, and
+`Color Picker` in the **Euricom** category, plus `Quote` in **General**.
+All six live in the `AutoText` gallery of the template's glossary.
+
+**Important:** these are available to a Word user only if the
+`.dotx` is loaded as a template — either as the active document
+template, or as a global template (File → Options → Add-ins →
+Manage: Templates → Go → Add the Euricom `.dotx`). They are **not**
+visible in the Building Blocks Organizer when opening a generated
+`.docx`, even though the glossary XML is physically present inside
+the file. This is Word's own design: Building Blocks are sourced
+from loaded templates, not from the current document.
+
+This is documented by Microsoft: Building Blocks can only be saved
+in a template (document template or global template). Saving a
+.dotx-with-Quick-Parts as .docx — which is essentially what the
+build script does, content-type-wise — drops the user's access to
+those Quick Parts even though the data survives in the zip.
+
+**Practical guidance for users who want the Quick Parts:**
+
+> Install the Euricom template once as a global template. In Word:
+> File → Options → Add-ins → bottom-of-screen Manage dropdown →
+> Templates → Go → Add → select `Euricom_Generic_Template.dotx`.
+> From then on, Insert → Quick Parts → Building Blocks Organizer
+> shows the six Euricom blocks in every Word session.
+
+**What the skill does about this**: nothing special. The build
+script doesn't try to preserve UI-level Quick Parts in the output
+.docx, because it can't — that's not how Word resolves Building
+Blocks. The skill renders notes, quotes, and tables programmatically
+via the helpers in `render_components.py`. The output of those
+helpers is byte-equivalent to what a human gets by inserting the
+Quick Part manually, so a generated document looks identical to
+one assembled by hand.
+
+## Inline Code in body text
+
+For file paths, filenames, environment variables, commands, keyboard
+shortcuts, and short menu/UI fragments, use the `InlineCodeChar`
+character style (Aptos Mono, dark teal text, light teal background,
+11pt). Compose runs via the `inline_code(text)` helper inside a
+`rich_paragraph(...)` or `bullet_rich(...)` call:
+
+```python
+from render_components import rich_paragraph, bullet_rich, inline_code
+
+# Inline code in lopende tekst
+rich_paragraph([
+    ("Open de Verkenner en plak ", {}),
+    inline_code("%APPDATA%\\Microsoft\\Word\\STARTUP"),
+    (" in de adresbalk. Kopieer ", {}),
+    inline_code("Euricom_Generic_Template.dotx"),
+    (" naar deze map.", {}),
+])
+
+# Inline code in een bullet
+bullet_rich([
+    ("Bestandsnamen — ", {}),
+    inline_code("package.json"),
+    (", ", {}),
+    inline_code("README.md"),
+    (".", {}),
+])
+```
+
+**Apply to:** file paths (`C:\Users\jdoe\Documents`,
+`~/Library/Preferences`), filenames
+(`Euricom_Generic_Template.dotx`), env vars (`%APPDATA%`, `$HOME`),
+commands (`git status`), shortcuts (`Ctrl+Alt+V`), and short UI
+fragments the reader must recognise verbatim
+(`Invoegen → Snelonderdelen`).
+
+**Don't apply to:** whole sentences (if a sentence is "code", it
+wants a different structure), prose where you just want emphasis
+(use italic), or to highlight terminology in a definition list (use
+bold instead).
+
+Five inline-code fragments in one paragraph reads as noise. If you
+find yourself reaching for that density, restructure into a bullet
+list with one code fragment per bullet, or into a table with two
+columns (description + code).
+
+## Writing a Quick Parts installation guide
+
+Users who want the in-template Quick Parts available in Word's UI
+must install the `.dotx` as a global template — a one-time per-laptop
+action (see the Quick Parts section above for the underlying reason).
+Generated documents that explain this should include both Windows and
+macOS paths. The canonical version of the instructions lives in the
+v1.7 template's own styleguide content under "Quick Parts activeren
+in Word". When asked to write or update this guide, follow that
+structure: a one-paragraph intro, then a Windows section with two
+routes (STARTUP-folder + Word-instellingen), then a macOS section
+with two routes (Word-instellingen + Startup-folder), with a
+`Waarschuwing`-note after each platform explaining the limitation of
+the secondary route. Use `InlineCodeChar` for every file path,
+filename, and shortcut throughout.
 
 ## Common pitfalls
 
@@ -346,47 +567,107 @@ paragraph("De klant zegt \"we hebben een team nodig\" en bedoelt ...")
 This keeps the Python source readable and avoids accidentally
 breaking string boundaries.
 
-### Don't add `page_break()` before `Heading1`
+### Don't insert page breaks proactively
 
-The template's `Heading1` style has **built-in page-break-before**
-behaviour: every H1 starts on a fresh page automatically (see
-`references/styles-reference.md`). Adding a manual `page_break()`
-right before an H1 produces a double break — one extra blank page
-between every chapter.
+In the Euricom template, `Heading1` does **NOT** auto-break to a new
+page. This is intentional: document density varies, and forced breaks
+before every chapter often produce ugly half-empty pages. Where to
+break is an editorial decision the human author makes, not the skill.
+
+**The only page break the skill emits automatically is the one after
+the TOC** (built into `toc()`). Anywhere else, do not call
+`page_break()` "for safety" between chapters.
 
 ```python
-# Wrong — produces an extra blank page before every chapter
+# Wrong — author hasn't asked for breaks; let the flow happen
+heading("Hoofdstuk 1", 1),
 paragraph("..."),
-page_break(),
-heading("New chapter", 1),
+page_break(),               # ← don't do this
+heading("Hoofdstuk 2", 1),
 
-# Right — the style handles the break
+# Right — the flow continues naturally
+heading("Hoofdstuk 1", 1),
 paragraph("..."),
-heading("New chapter", 1),
+heading("Hoofdstuk 2", 1),  # H1 does NOT auto-break
 ```
 
-`page_break()` is still useful, but only for forcing a break that
-the styles would not produce on their own — for example, mid-chapter
-before a large table, or to keep a quote on its own page. If the
-break you want is "start the next chapter on a new page", do
-nothing; the H1 style already does it.
+**When `page_break()` IS appropriate:**
+
+- Forcing a break before an oversized table that would split
+  awkwardly across pages
+- Isolating a full-page quote or image
+- Author has explicitly asked to break at a specific spot
+
+These are editorial exceptions, not defaults.
 
 ## Hard rules from the template itself
 
-These come from the template's own self-documentation and apply to
-every document the skill produces:
+These come from the Euricom template's own styleguide (the canonical
+reference is the v1.7 .dotx itself, which documents these rules in its
+embedded styleguide content). Every document the skill produces must
+respect them.
 
-- **No manual formatting when a style exists.** Never set font, size,
-  colour, or spacing directly to simulate a heading or note —
-  reference the style by ID.
+### Styling and formatting
+
+- **Use the template's styles. Never simulate them with manual
+  formatting.** This is the single most important rule. Concretely,
+  the following are forbidden anywhere in generated documents:
+  - Setting a specific font size (e.g. 14pt) to fake a heading —
+    reference `Heading1` / `Heading2` / `Heading3` instead.
+  - Setting a specific colour by hand for emphasis — use the styles
+    (`InlineCode`, note callouts, etc.) that already carry the right
+    brand colour.
+  - Adding empty paragraphs to create spacing between sections —
+    paragraph styles already include the correct `spacing` values.
+  - Applying bold or italic to whole paragraphs for emphasis. Use it
+    on a phrase inside a paragraph if needed, never to substitute for
+    a heading or a callout.
 - **Maximum heading depth: H3.** If the structure wants H4 or deeper,
-  restructure instead.
+  restructure instead — split into more H1's, or fold the deepest
+  level into prose.
 - **Maximum bullet depth: 2 levels.** Split or restructure if you
   need three.
+
+### Bullets and lists
+
+- **Use bulleted lists, not numbered lists.** Headings already provide
+  numbering in the document outline; an extra numbered list on top is
+  redundant and visually noisy. If you need to convey order in a
+  bulleted list, write `Eerst …`, `Daarna …`, `Tot slot …` in the
+  bullet text. The one exception is step-by-step procedures where the
+  step number is itself meaningful (e.g. "Step 3 must happen after
+  Step 2") — even there, prefer prose like "Stap 3:" written into the
+  bullet text over Word's auto-numbering, because auto-numbering does
+  not survive copy-paste across documents reliably.
+- **Keep bullets short, content-rich, and few.** A bullet list with
+  twelve entries is usually a sign that the content wants a table or
+  prose, not a list.
+
+### Inline Code
+
+- **Use `InlineCodeChar` for: file paths, filenames, environment
+  variables, commands, keyboard shortcuts, and short menu/UI
+  fragments** the reader must recognise verbatim. Apply via the
+  `inline_code(text)` helper inside `rich_paragraph(...)` or
+  `bullet_rich(...)`.
+- **Use it sparingly.** Five code fragments in one paragraph reads as
+  noise and destroys the contrast that gives the style its meaning.
+  If a whole sentence is code, extract the essence or use a code
+  paragraph instead.
+- **Don't fake it.** Never apply Aptos Mono + dark teal + light
+  background as ad-hoc run properties to simulate the style — that
+  detaches it from the central definition and breaks find-by-style
+  workflows for editors.
+
+### Notes
+
 - **Notes are semantic, not decorative.** Pick the right type (Tip,
   Alarm, Waarschuwing, Info) for what the note actually conveys.
   Don't use a Tip just because you like the green.
 - **One to two notes per page maximum.**
+
+### Cover, TOC, and metadata
+
 - **Cover and TOC are for documents ≥ 8 pages or external
   deliverables.** Skip both for memos and quick notes.
 - **The meta line on the cover ("voor"-vermelding) is always
@@ -394,23 +675,25 @@ every document the skill produces:
 - **No version number inside the document body.** Versioning lives in
   the filename suffix (`v0.1`, `v1.0`, `v1.1`, `v2.0`).
 - **File naming.** When the user asks for a filename, follow:
-  `<Documentnaam> v<version>.docx` — e.g. `AI-strategie_2026 v0.1.docx`.
-  Default to `v0.1` for drafts; the user can rename.
+  `<Documentnaam>-v<NN>.docx` — e.g. `AI-strategie-2026-v01.docx`.
+  Default to `v01` for drafts; the user can rename.
+  **No spaces and no dots in the filename** (other than the single
+  `.docx` extension). Spaces and dotted versions like `v0.1` break
+  iOS Quick Look — files preview as blank from the Files app even
+  though Word desktop opens them fine. Use hyphens for separation
+  and a digits-only version suffix (`v01`, `v10`, `v11`, `v20`).
 
 ## Output handling
 
-- **Where to write.** Final `.docx` goes to a path the user has
-  specified, or — if they haven't — to the current working directory.
-  Use a meaningful filename per the naming convention above. Confirm
-  the destination with the user when in doubt rather than overwriting
-  an existing file silently.
-- **Validate before reporting.** Run `scripts/validate_output.py` on
-  the produced file and only surface it to the user if it passes. If
-  validation fails, surface the error and try to fix it rather than
-  handing over a broken file.
-- **Report succinctly.** Tell the user the absolute path of the
-  generated file in one or two sentences. Don't paste the whole
-  document content back — they have the file.
+- **Where to write.** Final `.docx` goes to `/mnt/user-data/outputs/`
+  with a meaningful filename (per the naming convention above).
+- **Validate before presenting.** Run `validate_output.py` and only
+  call `present_files` if it passes. If validation fails, surface the
+  error to the user and try to fix it rather than presenting a broken
+  file.
+- **Present succinctly.** Use `present_files` to expose the file, with
+  a one-or-two-sentence summary of what was produced. Don't paste the
+  whole document content back to the user — they have the file.
 
 ## Example end-to-end
 

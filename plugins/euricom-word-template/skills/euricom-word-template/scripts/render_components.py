@@ -120,7 +120,10 @@ def h1_intro(text: str) -> str:
 
 def bullet(text: str, level: int = 1) -> str:
     """Bullet at level 1 or 2. The template's Bullet1/Bullet2 styles
-    handle indentation and the bullet glyph via numbering."""
+    handle indentation and the bullet glyph via numbering.
+
+    For bullets that need inline formatting (e.g. inline code), use
+    ``bullet_rich(...)`` instead."""
     if level not in (1, 2):
         raise ValueError(f"Bullet level must be 1 or 2 (got {level})")
     return paragraph(text, style=f"Bullet{level}")
@@ -128,12 +131,27 @@ def bullet(text: str, level: int = 1) -> str:
 
 def rich_paragraph(runs: Sequence[Tuple[str, dict]], style: Optional[str] = None) -> str:
     """Paragraph with multiple runs of different formatting.
-    Each run is a (text, props) tuple. props keys: bold, italic, color,
-    size (half-points, e.g. 20 = 10pt)."""
+
+    Each run is a (text, props) tuple. Recognised props keys:
+
+    - ``bold``: bool — apply ``<w:b/>``
+    - ``italic``: bool — apply ``<w:i/>``
+    - ``color``: hex string without ``#`` (e.g. ``"014046"``)
+    - ``size``: half-points (e.g. 20 = 10pt)
+    - ``rstyle``: character style ID (e.g. ``"InlineCodeChar"``) — applied
+      via ``<w:rStyle w:val="..."/>``. Most useful for inline code, but
+      works for any character style defined in the template.
+
+    Combine ``rstyle`` with the others if you want to override individual
+    properties on top of the character style; usually you should not need
+    to. For inline code in particular, prefer ``inline_code(text)`` over
+    constructing the run dict by hand."""
     style_xml = f'<w:pPr><w:pStyle w:val="{style}"/></w:pPr>' if style else ""
     runs_xml = []
     for text, props in runs:
         rpr_items = []
+        if "rstyle" in props:
+            rpr_items.append(f'<w:rStyle w:val="{props["rstyle"]}"/>')
         if props.get("bold"):
             rpr_items.append("<w:b/>")
         if props.get("italic"):
@@ -149,6 +167,46 @@ def rich_paragraph(runs: Sequence[Tuple[str, dict]], style: Optional[str] = None
     return f"<w:p>{style_xml}{''.join(runs_xml)}</w:p>"
 
 
+def inline_code(text: str) -> Tuple[str, dict]:
+    """Produce a run-tuple for inline code, using the template's
+    ``InlineCodeChar`` character style (Aptos Mono, dark teal, light teal
+    background, 11pt).
+
+    This returns a ``(text, props)`` tuple meant to be embedded in a
+    ``rich_paragraph(...)`` or ``bullet_rich(...)`` call alongside plain
+    text tuples. Example::
+
+        rich_paragraph([
+            ("Open the path ", {}),
+            inline_code("%APPDATA%\\\\Microsoft\\\\Word\\\\STARTUP"),
+            (" in Explorer.", {}),
+        ])
+
+    Apply to file paths, filenames, environment variables, commands,
+    keyboard shortcuts, and short menu items the reader must recognise
+    in a UI. Use sparingly — five code fragments in one paragraph reads
+    as noise. See SKILL.md for the full guideline."""
+    return (text, {"rstyle": "InlineCodeChar"})
+
+
+def bullet_rich(runs: Sequence[Tuple[str, dict]], level: int = 1) -> str:
+    """Bullet paragraph (Bullet1/Bullet2) with mixed-formatting runs
+    inside. The standard ``bullet(text)`` only accepts plain text; when
+    you need a bullet that contains an ``inline_code(...)`` run or other
+    formatting, use this instead. Example::
+
+        bullet_rich([
+            ("Bestandsnamen — ", {}),
+            inline_code("Euricom_Generic_Template.dotx"),
+            (".", {}),
+        ])
+    """
+    if level not in (1, 2):
+        raise ValueError(f"Bullet level must be 1 or 2 (got {level})")
+    return rich_paragraph(runs, style=f"Bullet{level}")
+
+
+
 # --------------------------------------------------------------------------- #
 # Page break
 # --------------------------------------------------------------------------- #
@@ -157,13 +215,36 @@ def page_break() -> str:
     """Hard page break — wraps the break in a paragraph as required
     by the spec (a standalone break is invalid).
 
-    **Do NOT use this before a Heading1.** The template's Heading1
-    style already has page-break-before built in; placing a manual
-    page_break() before an H1 produces a double break (one blank
-    page between every chapter). Only use page_break() to force a
-    break the styles wouldn't produce on their own — for example,
-    mid-chapter before a large table or to isolate a quote on its
-    own page."""
+    **Page-break philosophy in the Euricom template (v1.4+):**
+
+    The Heading1 style does NOT auto-break to a new page. This is
+    deliberate: documents have varying density, and forcing a page
+    break before every chapter often produces ugly half-empty pages.
+    The author is the only one who knows where a break genuinely
+    improves readability.
+
+    **Rules for the skill:**
+
+    - The skill emits at most ONE automatic page break: the one
+      immediately after the TOC (see `toc()`). This mirrors the
+      manual template's design where the first chapter starts on
+      a fresh page after the TOC.
+    - Anywhere else, the skill does NOT insert page breaks
+      proactively. Do not call `page_break()` between chapters
+      "for safety" — let the natural flow happen.
+    - If you (the human author reviewing a generated document) want
+      a break at a specific spot, insert it manually in Word, or
+      ask the skill to insert one at a named location.
+
+    **When `page_break()` IS appropriate to call from code:**
+
+    - Forcing a break before an oversized table that would
+      otherwise split awkwardly across pages
+    - Isolating a full-page quote or image
+    - Separating clearly distinct sections of a long document where
+      the author has explicitly asked for it
+
+    These are exceptions, not defaults."""
     return '<w:p><w:r><w:br w:type="page"/></w:r></w:p>'
 
 
@@ -476,91 +557,90 @@ def table(headers: Sequence[str], rows: Sequence[Sequence[str]],
 # --------------------------------------------------------------------------- #
 
 def cover_page(title: str, subtitle: Optional[str] = None,
-               meta: Optional[str] = None,
-               include_logo: bool = True) -> str:
-    """Build a cover page block: optional logo (anchored, taken from
-    the template's rId8 relationship), title, subtitle, and meta line
-    (e.g. 'VOOR EURICOM', always uppercase).
+               meta: Optional[str] = None) -> str:
+    """Signal to the build script that the document should keep the
+    template's cover page, with the three content controls filled in.
 
-    The block ends with a page break so the rest of the content
-    starts on page 2.
+    Starting from template v1.3, the cover is not built from scratch
+    by this helper. Instead, the template ships with a pre-designed
+    cover containing three content controls (tags: ``covertitle``,
+    ``coversubtitle``, ``covermeta``) plus a fourth control
+    ``documenttitle`` on page 3. The build script
+    (``build_from_template.py``) finds those controls and replaces
+    their inner text with the values passed here.
 
-    The logo anchor uses the same DrawingML structure as the original
-    template — the image data itself is already embedded in
-    word/media via the .dotx copy, so we only need to reference
-    relationship rId8.
+    This matches how human users work with the template: they open
+    the .dotx, click on the cover placeholders, and type. The skill
+    does exactly the same — only programmatically. Result: documents
+    generated by the skill look identical to documents created
+    manually from the template.
+
+    To OMIT the cover entirely (no cover page in the output), simply
+    do not call this function. The build script will then strip the
+    entire cover section from the template, leaving content to start
+    on page 1.
+
+    Parameters
+    ----------
+    title : str
+        Replaces both the covertitle (on the cover) and the
+        documenttitle (on page 3) controls with this value.
+    subtitle : str, optional
+        Replaces the coversubtitle control. If omitted, the control
+        is left empty.
+    meta : str, optional
+        Replaces the covermeta control. Always rendered uppercase
+        per Euricom convention. If omitted, the control is left empty.
     """
-    parts: List[str] = []
-
-    if include_logo:
-        # Anchored logo block, copied verbatim from the template.
-        # Position: top-left of the page, behind text wrapping disabled.
-        parts.append('''<w:p>
-  <w:pPr><w:spacing w:after="160" w:line="278" w:lineRule="auto"/></w:pPr>
-  <w:r>
-    <w:rPr><w:noProof/></w:rPr>
-    <w:drawing>
-      <wp:anchor distT="0" distB="0" distL="114300" distR="114300" simplePos="0" relativeHeight="251658240" behindDoc="0" locked="0" layoutInCell="1" allowOverlap="1">
-        <wp:simplePos x="0" y="0"/>
-        <wp:positionH relativeFrom="column"><wp:posOffset>-1905</wp:posOffset></wp:positionH>
-        <wp:positionV relativeFrom="paragraph"><wp:posOffset>167640</wp:posOffset></wp:positionV>
-        <wp:extent cx="3060000" cy="736722"/>
-        <wp:effectExtent l="0" t="0" r="7620" b="6350"/>
-        <wp:wrapTopAndBottom/>
-        <wp:docPr id="1" name="Picture 1"/>
-        <wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr>
-        <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
-          <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
-            <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
-              <pic:nvPicPr><pic:cNvPr id="0" name=""/><pic:cNvPicPr><a:picLocks noChangeAspect="1" noChangeArrowheads="1"/></pic:cNvPicPr></pic:nvPicPr>
-              <pic:blipFill>
-                <a:blip r:embed="rId8"/>
-                <a:stretch><a:fillRect/></a:stretch>
-              </pic:blipFill>
-              <pic:spPr bwMode="auto">
-                <a:xfrm><a:off x="0" y="0"/><a:ext cx="3060000" cy="736722"/></a:xfrm>
-                <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
-              </pic:spPr>
-            </pic:pic>
-          </a:graphicData>
-        </a:graphic>
-      </wp:anchor>
-    </w:drawing>
-  </w:r>
-</w:p>''')
-        # A few empty paragraphs to push the title down below the logo.
-        # The template uses ~6 blanks; 4 is a comfortable middle ground.
-        for _ in range(4):
-            parts.append("<w:p/>")
-
-    parts.append(paragraph(title, style="ECCoverTitle"))
-    if subtitle:
-        parts.append(paragraph(subtitle, style="ECCoverSubtitle"))
-    if meta:
-        # Meta is always uppercase per the template's convention
-        parts.append(paragraph(meta.upper(), style="ECCoverMeta"))
-
-    # End of cover: emit a section-break marker that build_from_template
-    # replaces with the cover-section sectPr inside a paragraph. This
-    # achieves two things at once: it ends the cover section (so the
-    # content pages get their own header / footer / page-numbering),
-    # and it implicitly breaks to a new page (a section break with
-    # type=nextPage, which is the template default, always starts a
-    # new page).
-    parts.append("<!-- EURICOM_COVER_SECTION_BREAK -->")
-    return "\n".join(parts)
+    # Embed the values as a hidden directive that the build script
+    # parses out. Each value is JSON-encoded to survive any XML-special
+    # characters cleanly. The marker is a comment so it's invisible in
+    # any intermediate processing and easy to grep for.
+    import json
+    payload = json.dumps({
+        "title": title,
+        "subtitle": subtitle or "",
+        "meta": (meta or "").upper(),
+    }, ensure_ascii=False)
+    # Encode to avoid -- inside the comment (XML forbids it).
+    safe = payload.replace("--", "&#45;&#45;")
+    return f"<!-- EURICOM_COVER_DIRECTIVE:{safe} -->"
 
 
 # --------------------------------------------------------------------------- #
 # Table of contents
 # --------------------------------------------------------------------------- #
 
-def toc(title: str = "Inhoud", levels: int = 2) -> str:
+def toc(title: str = "Inhoud", levels: int = 2,
+        entries: Optional[Sequence[str]] = None) -> str:
     """Insert a table-of-contents field. Word builds the actual entries
     on first open; until then a placeholder shows.
 
     `levels` controls TOC depth (template recommends 2 by default,
     3 for technical documents). `title` is the heading above the TOC.
+
+    `entries` is an optional list of H1 chapter titles. When provided,
+    each title is pre-rendered as a TOC1 paragraph inside the field's
+    result region. This gives readers something to see immediately
+    (useful in iOS Quick Look, Pages, or any viewer that doesn't auto-
+    update fields), while Word still treats the whole block as a TOC
+    field and replaces it with a full, page-numbered TOC on F9 /
+    "Update Field". Pass only H1 titles in order — the live TOC will
+    add H2 entries and page numbers itself.
+
+    The title uses ``Heading1`` with a direct-formatting override that
+    suppresses auto-numbering (``<w:numPr><w:numId w:val="0"/></w:numPr>``
+    sets numbering to "none" for this paragraph only). This matches the
+    Euricom v1.4+ template convention: the TOC title is a real H1 for
+    consistency in look and outline, but not numbered (so the first
+    actual chapter gets number 1, not 2).
+
+    A page break is emitted immediately after the TOC. This is the ONE
+    place in the document where the skill inserts a page break
+    automatically — the template's design assumes the TOC sits on its
+    own page, with the first chapter starting on the next page.
+    Everywhere else, authors should add `page_break()` themselves
+    only where the layout truly requires it.
 
     The TOC instruction "TOC \\o '1-N' \\h \\z \\u" is the standard Word
     field code:
@@ -569,26 +649,65 @@ def toc(title: str = "Inhoud", levels: int = 2) -> str:
       \\z       = hide tab leader/page numbers when in Web Layout
       \\u       = use the document outline level
     """
+    # Build the field-result region. Either a single placeholder line,
+    # or the F9 update hint followed by one TOC1 paragraph per supplied
+    # chapter title. Numbers are prefixed explicitly into the text
+    # because the TOC1 style is flat by design (no auto-numbering), so
+    # without a prefix the placeholder would render unnumbered. The F9
+    # hint is rendered in italics with a leading marker to make it
+    # visually distinct from real TOC entries — once F9 runs, the whole
+    # block is replaced anyway.
+    if entries:
+        result_paragraphs = "\n".join(
+            f'''  <w:p>
+    <w:pPr><w:pStyle w:val="TOC1"/></w:pPr>
+    <w:r><w:t xml:space="preserve">{i}. {escape_text(entry)}</w:t></w:r>
+  </w:p>'''
+            for i, entry in enumerate(entries, start=1)
+        )
+        result_region = f'''  <w:r>
+    <w:fldChar w:fldCharType="separate"/>
+  </w:r>
+  <w:p>
+    <w:pPr><w:pStyle w:val="TOC1"/></w:pPr>
+    <w:r>
+      <w:rPr><w:i/><w:iCs/><w:color w:val="808080"/></w:rPr>
+      <w:t xml:space="preserve">&#x270E; Rechtsklik hier en kies "Veld bijwerken" (F9) om de inhoudstafel te genereren of bij te werken.</w:t>
+    </w:r>
+  </w:p>
+{result_paragraphs}
+  <w:p>
+    <w:r>
+      <w:fldChar w:fldCharType="end"/>
+    </w:r>
+  </w:p>'''
+    else:
+        result_region = '''  <w:r>
+    <w:fldChar w:fldCharType="separate"/>
+  </w:r>
+  <w:r>
+    <w:rPr><w:i/><w:iCs/><w:color w:val="808080"/></w:rPr>
+    <w:t xml:space="preserve">&#x270E; Rechtsklik hier en kies "Veld bijwerken" (F9) om de inhoudstafel te genereren of bij te werken.</w:t>
+  </w:r>
+  <w:r>
+    <w:fldChar w:fldCharType="end"/>
+  </w:r>'''
+
     return f'''<w:p>
-  <w:pPr><w:pStyle w:val="Heading1"/></w:pPr>
+  <w:pPr>
+    <w:pStyle w:val="Heading1"/>
+    <w:numPr><w:ilvl w:val="0"/><w:numId w:val="0"/></w:numPr>
+  </w:pPr>
   <w:r><w:t xml:space="preserve">{escape_text(title)}</w:t></w:r>
 </w:p>
 <w:p>
   <w:r>
-    <w:fldChar w:fldCharType="begin" w:dirty="true"/>
+    <w:fldChar w:fldCharType="begin"/>
   </w:r>
   <w:r>
     <w:instrText xml:space="preserve"> TOC \\o "1-{levels}" \\h \\z \\u </w:instrText>
   </w:r>
-  <w:r>
-    <w:fldChar w:fldCharType="separate"/>
-  </w:r>
-  <w:r>
-    <w:t xml:space="preserve">Inhoudstafel wordt automatisch gegenereerd bij het openen van het document.</w:t>
-  </w:r>
-  <w:r>
-    <w:fldChar w:fldCharType="end"/>
-  </w:r>
+{result_region}
 </w:p>
 {page_break()}'''
 

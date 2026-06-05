@@ -32,10 +32,16 @@ REQUIRED_PARTS = [
     "word/document.xml",
     "word/styles.xml",
     "word/theme/theme1.xml",
-    "word/header2.xml",
-    "word/footer2.xml",
     "word/_rels/document.xml.rels",
     "[Content_Types].xml",
+]
+
+# Headers and footers may be named header1.xml, header2.xml, header3.xml
+# depending on which template version is in use. We require at least one
+# of each rather than a specific filename.
+REQUIRED_PART_PATTERNS = [
+    (re.compile(r"^word/header\d+\.xml$"), "header (any number)"),
+    (re.compile(r"^word/footer\d+\.xml$"), "footer (any number)"),
 ]
 
 
@@ -62,10 +68,15 @@ def validate(path: Path) -> int:
     names = set(zf.namelist())
     errors = []
 
-    # Check required parts exist
+    # Check required parts exist (exact names)
     for part in REQUIRED_PARTS:
         if part not in names:
             errors.append(f"Missing required part: {part}")
+
+    # Check required part patterns (header / footer with any number)
+    for pattern, description in REQUIRED_PART_PATTERNS:
+        if not any(pattern.match(n) for n in names):
+            errors.append(f"Missing required part matching: {description}")
 
     # Parse every XML file
     for name in zf.namelist():
