@@ -54,7 +54,7 @@ euricom-word-template/
 ├── SKILL.md                                  Main entry point + workflow
 ├── CHANGELOG.md                              Version history of the skill
 ├── assets/
-│   └── Euricom_Generic_Template.dotx          Embedded default template
+│   └── Euricom_Generic_Template_v1_0.dotx    Embedded default template
 ├── references/
 │   ├── styles-reference.md                   All style IDs + when to use
 │   ├── components-reference.md               Component API + examples
@@ -69,7 +69,7 @@ euricom-word-template/
 ## Updating the embedded template
 
 When a new version of the Euricom template is released, replace the
-file at `assets/Euricom_Generic_Template.dotx`. If the new version
+file at `assets/Euricom_Generic_Template_v1_0.dotx`. If the new version
 adds, renames, or removes styles, also update:
 
 - `references/styles-reference.md` (style catalogue)

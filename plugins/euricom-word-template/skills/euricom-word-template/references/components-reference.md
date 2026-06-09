@@ -9,7 +9,7 @@ template expects.
 
 | Situation | Component | Helper |
 |---|---|---|
-| Document main title (body, post-cover) | Title | `title("...")` |
+| Document title (the `documenttitle` content control, Title style) | Title | `title("...")` |
 | Chapter heading | Heading 1 | `heading("...", 1)` |
 | Section / sub-section | Heading 2 / 3 | `heading("...", 2)` / `heading("...", 3)` |
 | Italic intro under a chapter title | H1 Intro | `h1_intro("...")` |
@@ -159,6 +159,42 @@ ceremony without value.
 (default). It reuses `rId8` from the template's relationships, so the
 image data is already embedded — no need to ship a separate PNG.
 
+## Document title (CoverTitle vs DocumentTitle)
+
+The template has **two distinct title content controls**, and both
+should be filled with the same text:
+
+- **CoverTitle** (`covertitle`) — the large title on the cover page.
+  Filled from the `title=` argument of `cover_page(...)`.
+- **DocumentTitle** (`documenttitle`) — the `Title`-styled heading at
+  the top of the actual content: page 3 in a cover+TOC document, page 1
+  in a cover-less memo. Produced by `title("...")`.
+
+They are **separate, non-linked fields**: in Word, editing one does not
+change the other. The skill fills both at build time so their content
+matches, but nothing keeps them in sync afterwards — that is by design.
+
+**How to fill them.**
+
+- In a cover document, pass the same string to both:
+  `cover_page(title="X", ...)` and `title("X")`. Place the `title("X")`
+  call **after** `toc(...)` so the DocumentTitle lands on the first
+  content page.
+- You may **omit `title()` in a cover document** — the build script
+  then fills the DocumentTitle automatically from the cover title, and
+  positions it right after the TOC. This is a safety net: the
+  DocumentTitle is never left empty just because `title()` was
+  forgotten. Calling `title()` explicitly is still preferred when you
+  want full control over its position or want different text.
+- In a **cover-less** document (memo, short note) there is no cover
+  title to fall back on, so call `title("...")` yourself at the top of
+  the body to get a DocumentTitle on page 1.
+
+`title("...")` does not emit a plain paragraph; it emits the template's
+real `documenttitle` content control, so the generated title is
+identical to what a human gets by typing into the template's page-3
+placeholder.
+
 ## Table of contents
 
 **When to include one.** Same rule as the cover: roughly eight pages
@@ -181,7 +217,7 @@ A typical body assembly looks like:
 
 ```python
 from render_components import (
-    cover_page, toc, heading, h1_intro, paragraph,
+    cover_page, toc, title, heading, h1_intro, paragraph,
     bullet, note, quote, table, body
 )
 
@@ -192,6 +228,7 @@ doc = body(
         meta="VOOR EURICOM",
     ),
     toc(levels=2),
+    title("AI-strategie 2026"),  # same text as the cover title; lands on the first content page
 
     heading("Inleiding", 1),
     h1_intro("Deze nota schetst de Euricom-aanpak voor AI-adoptie in 2026."),

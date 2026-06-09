@@ -108,8 +108,43 @@ def heading(text: str, level: int = 1) -> str:
 
 
 def title(text: str) -> str:
-    """Document title (uses the 'Title' style — Aptos Display, large)."""
-    return paragraph(text, style="Title")
+    """Document title — the big ``Title``-styled heading at the top of
+    the content (page 3 of a cover+TOC document, page 1 of a cover-less
+    memo).
+
+    Unlike earlier versions, this does NOT emit a plain ``Title``
+    paragraph. It emits a directive that ``build_from_template.py``
+    turns into the template's real ``documenttitle`` **content control**
+    (an SDT with the ``Title`` style inside), placed at exactly this
+    position in the body. Call it where the title should appear: right
+    after ``toc(...)`` in a cover document, or at the very top in a
+    cover-less memo.
+
+    Relationship to the cover title
+    -------------------------------
+    The template has two separate title content controls:
+
+    - ``covertitle`` — on the cover page, filled from ``cover_page(...)``.
+    - ``documenttitle`` — the one this helper produces.
+
+    They are independent fields: editing one in Word does NOT change the
+    other (they are not linked). Their *content* should normally match,
+    so in a cover document pass the same string you passed to
+    ``cover_page(title=...)``.
+
+    Robustness
+    ----------
+    In a cover document you may omit ``title()`` entirely — the build
+    script then fills the ``documenttitle`` control automatically from
+    the cover title, so the DocumentTitle is never left empty. If you do
+    call ``title()``, your text wins and it is placed exactly where you
+    put the call.
+    """
+    import json
+    payload = json.dumps({"title": text}, ensure_ascii=False)
+    # Encode -- so it can't appear inside an XML comment (forbidden).
+    safe = payload.replace("--", "&#45;&#45;")
+    return f"<!-- EURICOM_DOCTITLE_DIRECTIVE:{safe} -->"
 
 
 def h1_intro(text: str) -> str:
@@ -709,7 +744,8 @@ def toc(title: str = "Inhoud", levels: int = 2,
   </w:r>
 {result_region}
 </w:p>
-{page_break()}'''
+{page_break()}
+<!-- EURICOM_AFTER_TOC -->'''
 
 
 # --------------------------------------------------------------------------- #

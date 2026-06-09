@@ -72,6 +72,40 @@ COVER_DIRECTIVE_PATTERN = re.compile(
     r"<!-- EURICOM_COVER_DIRECTIVE:(\{.*?\}) -->"
 )
 
+# Marker emitted by title() to signal where the document title (the
+# template's `documenttitle` content control, Title style) should be
+# placed in the body.
+#
+# Form: <!-- EURICOM_DOCTITLE_DIRECTIVE:{"title":"…"} -->
+DOCTITLE_DIRECTIVE_PATTERN = re.compile(
+    r"<!-- EURICOM_DOCTITLE_DIRECTIVE:(\{.*?\}) -->"
+)
+
+# Marker emitted by toc() immediately after the TOC's trailing page
+# break. It gives the build script a deterministic anchor for the
+# document-title safety net: when title() was omitted, the DocumentTitle
+# is injected right after this marker so it lands on the first content
+# page (page 3 of a cover+TOC document) rather than before the TOC.
+AFTER_TOC_MARKER = "<!-- EURICOM_AFTER_TOC -->"
+
+
+def extract_documenttitle_sdt(template_doc_xml: str) -> Optional[str]:
+    """Return the template's ``documenttitle`` content control (SDT) as a
+    raw XML string, or ``None`` if the template has no such control.
+
+    This is the canonical DocumentTitle field: an SDT tagged
+    ``documenttitle`` whose content is a single ``Title``-styled
+    paragraph. We reuse the template's own control (rather than
+    fabricating one) so the generated DocumentTitle is byte-faithful to
+    what a human gets by typing into the template's page-3 placeholder —
+    same style, same alias, same placeholder docPart.
+    """
+    spans = _find_top_level_sdt_spans(template_doc_xml)
+    for start, end, tag in spans:
+        if tag == "documenttitle":
+            return template_doc_xml[start:end]
+    return None
+
 
 def _find_top_level_sdt_spans(xml: str) -> list[tuple[int, int, str]]:
     """Return list of (start, end, tag_value) for every top-level
@@ -305,6 +339,77 @@ def build_document_xml(body_xml: str, namespaces: str,
     # Parse cover directive (if any)
     directive, body_xml = parse_cover_directive(body_xml)
 
+    # ------------------------------------------------------------------ #
+    # Document title (the template's `documenttitle` content control)
+    # ------------------------------------------------------------------ #
+    # The DocumentTitle is a SEPARATE content control from the cover's
+    # CoverTitle — same content, two independent fields. We fill it here
+    # so it is ALWAYS present and never depends on Claude remembering to
+    # emit a Title paragraph:
+    #
+    #   1. Every explicit title() marker in the body is replaced, in
+    #      place, with the template's documenttitle SDT filled with that
+    #      title. This keeps Claude's chosen position (e.g. after the
+    #      TOC, so the title lands on page 3).
+    #   2. If, after that, the body still has no documenttitle control
+    #      AND we have a cover title to fall back on, one is injected
+    #      automatically — right after the TOC (via the AFTER_TOC marker)
+    #      so it lands on the first content page, or at the very top of
+    #      the content when there is no TOC.
+    #
+    # Either way the cover title (covertitle) and the document title
+    # (documenttitle) end up filled with the same content, as two
+    # distinct, non-linked fields.
+    import json as _json
+    import itertools as _itertools
+
+    doctitle_sdt = extract_documenttitle_sdt(template_doc_xml)
+    _doctitle_id_counter = _itertools.count(1)
+
+    def _uniquify_sdt_id(sdt_xml: str) -> str:
+        # Give each emitted documenttitle control its own w:id so that a
+        # document with more than one title() call (user error, but cheap
+        # to guard against) doesn't end up with colliding content-control
+        # ids — Word treats same-id controls as the same field.
+        new_id = 1285200000 + next(_doctitle_id_counter)
+        return re.sub(r'(<w:id w:val=")[^"]*("/>)',
+                      rf'\g<1>{new_id}\g<2>', sdt_xml, count=1)
+
+    def _render_doctitle(match: "re.Match") -> str:
+        payload = match.group(1).replace("&#45;&#45;", "--")
+        try:
+            text = _json.loads(payload).get("title", "")
+        except _json.JSONDecodeError:
+            text = ""
+        if doctitle_sdt:
+            filled = fill_content_control(doctitle_sdt, "documenttitle", text)
+            return _uniquify_sdt_id(filled)
+        # Fallback if the template lacks the control: a plain Title para.
+        safe = (text.replace("&", "&amp;")
+                    .replace("<", "&lt;").replace(">", "&gt;"))
+        return ('<w:p><w:pPr><w:pStyle w:val="Title"/></w:pPr>'
+                f'<w:r><w:t xml:space="preserve">{safe}</w:t></w:r></w:p>')
+
+    # Step 1: honour explicit title() placements.
+    body_xml = DOCTITLE_DIRECTIVE_PATTERN.sub(_render_doctitle, body_xml)
+
+    # Step 2: safety net — guarantee a DocumentTitle even if title() was
+    # omitted, using the cover title as the source.
+    has_doctitle = 'w:val="documenttitle"' in body_xml
+    fallback_title = (directive or {}).get("title", "") if directive else ""
+    if not has_doctitle and doctitle_sdt and fallback_title:
+        injected = _uniquify_sdt_id(
+            fill_content_control(doctitle_sdt, "documenttitle",
+                                 fallback_title))
+        if AFTER_TOC_MARKER in body_xml:
+            body_xml = body_xml.replace(
+                AFTER_TOC_MARKER, AFTER_TOC_MARKER + "\n" + injected, 1)
+        else:
+            body_xml = injected + "\n" + body_xml
+
+    # Step 3: the AFTER_TOC marker is an internal signal — never leak it.
+    body_xml = body_xml.replace(AFTER_TOC_MARKER, "")
+
     # Determine the trailing sectPr (always present)
     if len(sectprs) >= 2:
         content_sectpr = sectprs[-1]
@@ -325,12 +430,9 @@ def build_document_xml(body_xml: str, namespaces: str,
         cover_block = fill_content_control(cover_block, "covermeta",
                                            directive.get("meta", ""))
 
-        # The documenttitle SDT lives in the rest of the document
-        # (page 3 area). Fill it in the body_xml too — but only if
-        # the body_xml is empty / minimal. In practice the body_xml
-        # is fully Claude-generated and won't contain a documenttitle
-        # SDT. The documenttitle in the template's rest block is
-        # therefore irrelevant for generated content. Skipping it.
+        # The documenttitle content control has already been placed into
+        # body_xml above (either at an explicit title() position or via
+        # the safety net using this cover's title). Nothing to do here.
 
         # Trailing: use content sectPr as-is (cover block has its own
         # inline section break already)

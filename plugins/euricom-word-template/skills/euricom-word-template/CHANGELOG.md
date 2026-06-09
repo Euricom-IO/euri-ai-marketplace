@@ -11,6 +11,99 @@ The skill follows semantic versioning: MAJOR.MINOR.PATCH. MAJOR for
 breaking API changes, MINOR for new features or convention changes,
 PATCH for fixes.
 
+## [1.5.3] — 2026-05-29
+
+### Changed
+
+- **Embedded template: `Title` style spacing-before reduced from 24pt
+  to 10pt** (`w:before` 480 → 200 twips in `word/styles.xml`). This
+  tightens the gap above the DocumentTitle on the first content page;
+  `spacing after` (600 / 30pt), font size, colour, and all other style
+  properties are unchanged. Only the `Title` paragraph style is
+  affected — the cover title uses `ECCoverTitle` and is untouched. All
+  36 template parts (theme, logo, headers, footers, numbering) are
+  preserved. Scripts are unchanged.
+
+## [1.5.2] — 2026-05-29
+
+### Changed
+
+- **SKILL.md refactored for progressive disclosure** — reduced from 727
+  to 350 lines (well under the 500-line review gate) by moving detailed
+  material into `references/`, with short pointers left in place. No
+  behaviour change: the scripts, helpers, build contract, and generated
+  output are byte-identical to 1.5.1. SKILL.md is now a lean
+  orchestration layer; the detail lives where it is easier to maintain.
+- **Three new reference files** hold the relocated content:
+  - `references/proofreading.md` — the full pre-build proofreading
+    checklist (was the body of "Proofread before building").
+  - `references/authoring-and-pitfalls.md` — the Inline Code guide and
+    the common pitfalls (never pre-encode characters, single-quoted
+    Python strings, don't insert page breaks proactively).
+  - `references/quick-parts.md` — why Quick Parts are a property of the
+    `.dotx` rather than generated documents, plus the installation-guide
+    structure.
+- **SKILL.md sections condensed**: the "Hard rules", "How the build
+  works", "Workflow", "Proofread", and "Invite further refinement"
+  sections were tightened to their essential rules, each pointing to the
+  relevant reference file for the rationale and examples. A consolidated
+  "Reference files" section now lists all seven references.
+
+### Notes
+
+- This release is documentation-only. `render_components.py`,
+  `build_from_template.py`, `validate_output.py`, and the embedded
+  `.dotx` are unchanged from 1.5.1. The 1.5.1 DocumentTitle fix is fully
+  preserved (the rule lives in the condensed "Hard rules" section and
+  the full explanation in `references/components-reference.md`).
+- Motivation: an external skill review flagged an *older* SKILL.md
+  (162 lines, python-docx-based, not referencing the bundle). That
+  version was already superseded; this refactor brings the current,
+  correct SKILL.md back under the line-count gate while keeping the
+  bundle-first, XML-based approach.
+
+## [1.5.1] — 2026-05-29
+
+### Fixed
+
+- **DocumentTitle (the `Title`-styled `documenttitle` content control)
+  was not reliably set.** Previously `title("...")` emitted a plain
+  `Title` paragraph and the template's `documenttitle` content control
+  was discarded entirely — so the title on page 3 (cover+TOC documents)
+  or page 1 (cover-less documents) depended on Claude remembering to
+  call `title()` and was missing whenever it was forgotten. The build
+  now always produces the real `documenttitle` content control:
+  - `title("...")` emits a directive that the build script turns into
+    the template's `documenttitle` SDT (Title style) **at the position
+    where `title()` was called** — so placing it after `toc(...)` keeps
+    the title on the first content page.
+  - **Safety net:** in a cover document, if no `title()` was emitted,
+    the build fills the `documenttitle` control automatically from the
+    cover title and positions it just after the TOC (via a new
+    `<!-- EURICOM_AFTER_TOC -->` anchor that `toc()` now emits). The
+    DocumentTitle is therefore never left empty.
+- **Both title content controls are now filled.** The template's
+  `covertitle` (cover) and `documenttitle` (content) are separate,
+  non-linked fields. The build fills both with the same content — the
+  cover title from `cover_page(...)` and the document title from
+  `title(...)` (or, as a fallback, also from the cover title). Editing
+  one in Word does not change the other; they are intentionally not
+  auto-synchronised.
+
+### Changed
+
+- `render_components.title(text)` no longer returns a `Title` paragraph;
+  it returns an `EURICOM_DOCTITLE_DIRECTIVE` marker. The signature and
+  intent are unchanged — callers still call `title("My title")` — but
+  the output is now the proper content control. No other helper
+  signatures changed.
+- `render_components.toc(...)` appends an internal `EURICOM_AFTER_TOC`
+  marker after its trailing page break. The marker is consumed and
+  stripped by the build script and never appears in the output.
+- `build_from_template.py` gained `extract_documenttitle_sdt(...)` and
+  the document-title placement / safety-net logic in
+  `build_document_xml`. The embedded `.dotx` template is unchanged.
+
 ## [1.5.0] — 2026-05-26
 
 This release combines several months of template iterations (v1.4 →
