@@ -38,6 +38,18 @@
       "keywords": ["euricom", "word", "docx", "template", "branding", "huisstijl"]
     },
     {
+      "name": "euricom-powerpoint-template",
+      "description": "Produce professional .pptx presentations in the Euricom brand template (Montserrat, brand colours, dark cover/section slides, content slides, quote slide, automatic page numbers).",
+      "author": {
+        "name": "Euricom",
+        "email": "support@euri.com"
+      },
+      "source": "./plugins/euricom-powerpoint-template",
+      "category": "productivity",
+      "homepage": "https://github.com/euricom-io/euri-ai-marketplace/tree/main/plugins/euricom-powerpoint-template",
+      "keywords": ["euricom", "powerpoint", "pptx", "presentation", "slides", "template", "branding", "huisstijl"]
+    },
+    {
       "name": "claude-marketplace-builder",
       "description": "Scaffold a new Claude Code plugin marketplace or extend an existing one — generates marketplace.json, plugin.json, and the directory layout the platform expects.",
       "author": {
