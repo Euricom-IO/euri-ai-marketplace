@@ -50,6 +50,18 @@
       "keywords": ["euricom", "powerpoint", "pptx", "presentation", "slides", "template", "branding", "huisstijl"]
     },
     {
+      "name": "accessibility-testing",
+      "description": "Diagnose and test web accessibility across the full stack — browser accessibility tree, platform accessibility APIs (UIA, IAccessible2, AX API), and screen readers (JAWS, NVDA, VoiceOver, Narrator). Includes testing matrix, ARIA guidance, and debugging workflow. Based on the JSNation 2026 talk by Tshepiso Lehutjo.",
+      "author": {
+        "name": "Euricom",
+        "email": "support@euri.com"
+      },
+      "source": "./plugins/accessibility-testing",
+      "category": "testing",
+      "homepage": "https://github.com/euricom-io/euri-ai-marketplace/tree/main/plugins/accessibility-testing",
+      "keywords": ["accessibility", "a11y", "screen-reader", "aria", "wcag", "testing", "nvda", "jaws", "voiceover"]
+    },
+    {
       "name": "claude-marketplace-builder",
       "description": "Scaffold a new Claude Code plugin marketplace or extend an existing one — generates marketplace.json, plugin.json, and the directory layout the platform expects.",
       "author": {
