@@ -1,5 +1,5 @@
 {
-  "name": "accessibility-testing",
+  "name": "euricom-accessibility-testing",
   "description": "Diagnose and test web accessibility across the full stack: browser accessibility tree, platform accessibility APIs, and screen readers.",
   "author": { "name": "Euricom" },
   "license": "Proprietary"

@@ -67,13 +67,20 @@ Use when `.claude-plugin/marketplace.json` already exists.
 
 1. **Read the existing `marketplace.json`** and confirm the new plugin
    name does not clash with any entry in `plugins[]`.
-2. **Scaffold the plugin tree** under `plugins/<new-name>/` following
+2. **Apply the marketplace's naming convention.** In the Euricom
+   marketplace (`euricom-plugins-directory`), every internal plugin and
+   its skill are prefixed `euricom-` (e.g. `euricom-word-template`,
+   `euricom-accessibility-testing`). Use the prefix for the plugin
+   directory, `plugin.json` name, skill directory, and SKILL.md
+   frontmatter name. Third-party plugins under `external_plugins/` keep
+   their upstream name.
+3. **Scaffold the plugin tree** under `plugins/<new-name>/` following
    the same shape as workflow A step 2.
-3. **Append a new entry to `plugins[]`** in `marketplace.json` with
+4. **Append a new entry to `plugins[]`** in `marketplace.json` with
    the right `source` field (see [[source-types]] to choose
    relative / github / url / git-subdir / npm).
-4. **Write the plugin's `plugin.json`**.
-5. **Validate**.
+5. **Write the plugin's `plugin.json`**.
+6. **Validate**.
 
 ### C. Convert an existing skill folder into a plugin
 

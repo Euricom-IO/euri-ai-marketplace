@@ -17,7 +17,7 @@ To install, run
 
 ```
 /plugin marketplace add git@github.com:euricom-io/euri-ai-marketplace.git
-/plugin install {plugin-name}@euricom-plugin-directory
+/plugin install {plugin-name}@euricom-plugins-directory
 ```
 
 or browse for the plugin in `/plugin > Discover`
@@ -27,6 +27,8 @@ or browse for the plugin in `/plugin > Discover`
 ### Plugins
 
 Plugins are developed by Euricom team members. See `/plugins/example-plugin` for a reference implementation.
+
+**Naming convention:** internal plugins and their skills are prefixed with `euricom-` (e.g. `euricom-word-template`, `euricom-accessibility-testing`). Apply the prefix to the plugin directory, the `name` in `plugin.json`, the skill directory, and the `name` in the SKILL.md frontmatter. Third-party plugins under `/external_plugins` keep their upstream name.
 
 ### External Plugins
 

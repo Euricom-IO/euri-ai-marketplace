@@ -1,5 +1,5 @@
 ---
-name: accessibility-testing
+name: euricom-accessibility-testing
 description: >-
   Diagnose, test, and review web accessibility with awareness of the full
   pipeline: browser accessibility tree → platform accessibility API → screen
